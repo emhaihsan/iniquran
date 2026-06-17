@@ -122,13 +122,13 @@ export class QuranView {
     }
 
     private _getAyahsHtml(arabic: Ayah[]): string {
-        return arabic.map((ayah, i) => {
-            const isNewSurah = i > 0 && ayah.surah?.number !== arabic[i-1].surah?.number;
+        return arabic.map((ayah) => {
+            const isBismillah = ayah.numberInSurah === 0;
+            const numberBadge = isBismillah ? '' : `<span class="ayah-number">${ayah.numberInSurah}</span>`;
+            const containerClass = isBismillah ? 'bismillah-container' : 'ayah-container';
             return `
-                ${isNewSurah ? `<div class="surah-separator">Surah ${ayah.surah?.englishName}</div>` : ''}
-                <div class="ayah-container" id="ayah-${ayah.numberInSurah}">
-                    <div class="ayah-meta">Surah ${ayah.surah?.englishName} Ayah ${ayah.numberInSurah}</div>
-                    <div class="arabic">${ayah.text} <span class="ayah-number">${ayah.numberInSurah}</span></div>
+                <div class="${containerClass}" id="ayah-${ayah.numberInSurah}">
+                    <div class="arabic">${ayah.text}${numberBadge}</div>
                 </div>
             `;
         }).join('');
@@ -146,7 +146,7 @@ export class QuranView {
         :root { --quran-font-size: ${fontSize}px; }
         body {
             font-family: var(--vscode-font-family);
-            padding: 20px; padding-top: 120px;
+            padding: 20px; padding-top: 170px;
             line-height: 1.6; color: var(--vscode-foreground);
             background-color: var(--vscode-editor-background);
             overflow-y: scroll;
@@ -173,13 +173,14 @@ export class QuranView {
         .info-item { display: flex; align-items: center; gap: 8px; }
         .info-label { color: var(--vscode-descriptionForeground); font-weight: normal; }
         .ayah-container { margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid var(--vscode-widget-border); animation: fadeIn 0.3s ease-in; }
+        .bismillah-container { margin-bottom: 20px; padding-bottom: 15px; text-align: center; border-bottom: 1px solid var(--vscode-widget-border); animation: fadeIn 0.3s ease-in; }
+        .bismillah-container .arabic { font-size: calc(var(--quran-font-size) * 1.4); }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .surah-separator { text-align: center; margin: 40px 0; padding: 10px; background: var(--vscode-sideBar-background); font-weight: bold; border-radius: 4px; }
         .arabic { font-family: 'Scheherazade New', 'Amiri', serif; font-size: calc(var(--quran-font-size) * 1.8); direction: rtl; text-align: right; margin-bottom: 15px; line-height: 2.2; }
         .ayah-number { font-size: calc(var(--quran-font-size) * 0.8); border: 1px solid var(--vscode-descriptionForeground); border-radius: 50%; padding: 2px 8px; margin-right: 10px; display: inline-block; direction: ltr; }
         select, button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 4px 8px; cursor: pointer; }
         select:hover, button:hover { background: var(--vscode-button-hoverBackground); }
-        #loadingOverlay { position: fixed; top: 120px; left: 0; right: 0; bottom: 0; background: var(--vscode-editor-background); display: none; justify-content: center; align-items: center; z-index: 900; opacity: 0.7; }
+        #loadingOverlay { position: fixed; top: 170px; left: 0; right: 0; bottom: 0; background: var(--vscode-editor-background); display: none; justify-content: center; align-items: center; z-index: 900; opacity: 0.7; }
         .spinner { width: 40px; height: 40px; border: 4px solid var(--vscode-widget-border); border-top: 4px solid var(--vscode-textLink-foreground); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .mode-switch { display: flex; gap: 15px; align-items: center; }
@@ -223,15 +224,11 @@ export class QuranView {
         </div>
     </div>
 
-    <div id="mainHeader" class="header" style="text-align: center; margin-bottom: 40px; border-bottom: 1px solid var(--vscode-widget-border); padding-bottom: 20px;">
-        <h1 id="viewTitle">${title}</h1>
-    </div>
     <div id="quranContent" class="content"></div>
 
     <script>
         const vscode = acquireVsCodeApi();
         const contentDiv = document.getElementById('quranContent');
-        const viewTitle = document.getElementById('viewTitle');
         const loadingOverlay = document.getElementById('loadingOverlay');
         const mainSelector = document.getElementById('mainSelector');
         const surahSelect = document.getElementById('surahSelect');
@@ -242,7 +239,6 @@ export class QuranView {
             const message = event.data;
             if (message.command === 'updateContent') {
                 contentDiv.innerHTML = message.ayahsHtml;
-                viewTitle.innerText = message.title;
                 document.getElementById('displaySurahName').innerText = message.metadata.surahName;
                 document.getElementById('displayJuzNum').innerText = message.metadata.juz;
 

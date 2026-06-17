@@ -2,13 +2,36 @@
   "name": "iniquran",
   "displayName": "Ini Quran",
   "description": "Read Quran in VS Code",
-  "version": "0.0.1",
+  "version": "1.0.1",
+  "publisher": "emhaihsan",
+  "license": "MIT",
+  "icon": "icon.png",
   "engines": {
     "vscode": "^1.80.0"
   },
   "categories": [
     "Other"
   ],
+  "keywords": [
+    "quran",
+    "islam",
+    "qur'an",
+    "offline",
+    "uthmani",
+    "arabic"
+  ],
+  "galleryBanner": {
+    "color": "#00897B",
+    "theme": "dark"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/emhaihsan/iniquran.git"
+  },
+  "bugs": {
+    "url": "https://github.com/emhaihsan/iniquran/issues"
+  },
+  "homepage": "https://github.com/emhaihsan/iniquran#readme",
   "activationEvents": [
     "onView:quran-navigation"
   ],
