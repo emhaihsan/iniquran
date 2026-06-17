@@ -1,15 +1,9 @@
 import * as vscode from 'vscode';
 import { QuranProvider } from './quranProvider';
 import { QuranView } from './quranView';
-import { getSurahWithTranslation, getJuzWithTranslation, getPageWithTranslation, search, Surah, Ayah } from './api';
 import { CacheManager } from './cacheManager';
-
-// Standard Uthmani Mushaf Juz to Page Mapping
-const JUZ_TO_PAGE_MAP: { [key: number]: number } = {
-    1: 1, 2: 22, 3: 42, 4: 62, 5: 82, 6: 102, 7: 122, 8: 142, 9: 162, 10: 182,
-    11: 202, 12: 222, 13: 242, 14: 262, 15: 282, 16: 302, 17: 322, 18: 342, 19: 362, 20: 382,
-    21: 402, 22: 422, 23: 442, 24: 462, 25: 482, 26: 502, 27: 522, 28: 542, 29: 562, 30: 582
-};
+import { getSurahWithTranslation, getPageWithTranslation, search, Surah, Ayah } from './api';
+import { JUZ_META } from './quranMeta';
 
 export function activate(context: vscode.ExtensionContext) {
     // Initialize Cache
@@ -28,7 +22,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand('iniquran.openSurah', async (surah: Surah) => {
-            const title = `${surah.number}. ${surah.englishName} (${surah.name})`;
+            const title = surah.englishName ? `${surah.number}. ${surah.englishName} (${surah.name})` : `Surah ${surah.number}`;
             const view = QuranView.createOrShow(title);
             
             try {
@@ -49,9 +43,9 @@ export function activate(context: vscode.ExtensionContext) {
         }),
 
         vscode.commands.registerCommand('iniquran.openJuz', async (juzNumber: number) => {
-            const pageNumber = JUZ_TO_PAGE_MAP[juzNumber];
-            if (pageNumber) {
-                vscode.commands.executeCommand('iniquran.openPage', pageNumber);
+            const juz = JUZ_META[juzNumber];
+            if (juz) {
+                vscode.commands.executeCommand('iniquran.openPage', juz.startPage);
             }
         }),
 
@@ -69,7 +63,11 @@ export function activate(context: vscode.ExtensionContext) {
                     cancellable: false
                 }, async () => {
                     const { arabic, translation } = await getPageWithTranslation(pageNumber, edition);
-                    view.update(arabic, translation, title, { type: 'page', value: pageNumber });
+                    if (arabic && arabic.length > 0) {
+                        view.update(arabic, translation, title, { type: 'page', value: pageNumber });
+                    } else {
+                        vscode.window.showErrorMessage(`No data found for Page ${pageNumber}`);
+                    }
                 });
             } catch (error) {
                 vscode.window.showErrorMessage(`Failed to load Page: ${error}`);
@@ -91,8 +89,6 @@ export function activate(context: vscode.ExtensionContext) {
                 const source = QuranView.currentPanel.currentSource;
                 if (source.type === 'surah') {
                     vscode.commands.executeCommand('iniquran.openSurah', source.value);
-                } else if (source.type === 'juz') {
-                    vscode.commands.executeCommand('iniquran.openPage', JUZ_TO_PAGE_MAP[source.value]);
                 } else if (source.type === 'page') {
                     vscode.commands.executeCommand('iniquran.openPage', source.value);
                 }

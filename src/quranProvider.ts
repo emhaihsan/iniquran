@@ -17,8 +17,7 @@ export class QuranProvider implements vscode.TreeDataProvider<QuranItem> {
         if (!element) {
             return [
                 new QuranItem('Surah', vscode.TreeItemCollapsibleState.Collapsed, 'category', 'surah-root'),
-                new QuranItem('Juz', vscode.TreeItemCollapsibleState.Collapsed, 'category', 'juz-root'),
-                new QuranItem('Page', vscode.TreeItemCollapsibleState.Collapsed, 'category', 'page-root')
+                new QuranItem('Juz', vscode.TreeItemCollapsibleState.Collapsed, 'category', 'juz-root')
             ];
         }
 
@@ -50,42 +49,6 @@ export class QuranProvider implements vscode.TreeDataProvider<QuranItem> {
                     arguments: [j]
                 }
             ));
-        }
-
-        if (element.contextValue === 'page-root') {
-            // Group pages by 50 to avoid a long list
-            const groups = [];
-            for (let i = 1; i <= 604; i += 50) {
-                const end = Math.min(i + 49, 604);
-                groups.push(new QuranItem(
-                    `Page ${i} - ${end}`,
-                    vscode.TreeItemCollapsibleState.Collapsed,
-                    'category',
-                    `page-group-${i}-${end}`
-                ));
-            }
-            return groups;
-        }
-
-        if (element.contextValue?.startsWith('page-group-')) {
-            const [, , startStr, endStr] = element.contextValue.split('-');
-            const start = parseInt(startStr);
-            const end = parseInt(endStr);
-            const pages = [];
-            for (let i = start; i <= end; i++) {
-                pages.push(new QuranItem(
-                    `Page ${i}`,
-                    vscode.TreeItemCollapsibleState.None,
-                    'page',
-                    'page-item',
-                    {
-                        command: 'iniquran.openPage',
-                        title: 'Open Page',
-                        arguments: [i]
-                    }
-                ));
-            }
-            return pages;
         }
 
         return [];

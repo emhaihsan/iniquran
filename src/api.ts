@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { CacheManager } from './cacheManager';
+import { JUZ_META } from './quranMeta';
 
 const BASE_URL = 'https://api.alquran.cloud/v1';
 
@@ -41,7 +42,7 @@ export async function getSurahs(): Promise<Surah[]> {
     return data;
 }
 
-export async function getSurahDetail(number: number, edition: string = 'quran-uthmani'): Promise<Ayah[]> {
+export async function getSurahDetail(number: number, edition: string = 'en.sahih'): Promise<Ayah[]> {
     const cacheKey = `surah_${number}_${edition}`;
     const cached = CacheManager.get<Ayah[]>(cacheKey);
     if (cached) return cached;
@@ -60,46 +61,30 @@ export async function getSurahWithTranslation(number: number, edition: string = 
     return { arabic, translation };
 }
 
-export async function getJuz(number: number, edition: string = 'quran-uthmani'): Promise<Ayah[]> {
-    const cacheKey = `juz_${number}_${edition}`;
-    const cached = CacheManager.get<Ayah[]>(cacheKey);
+export async function getPageWithTranslation(pageNumber: number, edition: string = 'en.sahih'): Promise<{ arabic: Ayah[], translation: Ayah[] }> {
+    const cacheKey = `page_${pageNumber}_${edition}`;
+    const cached = CacheManager.get<{ arabic: Ayah[], translation: Ayah[] }>(cacheKey);
     if (cached) return cached;
 
-    const response = await axios.get<QuranResponse<{ ayahs: Ayah[] }>>(`${BASE_URL}/juz/${number}/${edition}`);
-    const data = response.data.data.ayahs;
-    CacheManager.set(cacheKey, data);
-    return data;
-}
-
-export async function getJuzWithTranslation(number: number, edition: string = 'en.sahih'): Promise<{ arabic: Ayah[], translation: Ayah[] }> {
-    const [arabic, translation] = await Promise.all([
-        getJuz(number, 'quran-uthmani'),
-        getJuz(number, edition)
+    const [arabicRes, transRes] = await Promise.all([
+        axios.get<QuranResponse<{ ayahs: Ayah[] }>>(`${BASE_URL}/page/${pageNumber}/quran-uthmani`),
+        axios.get<QuranResponse<{ ayahs: Ayah[] }>>(`${BASE_URL}/page/${pageNumber}/${edition}`)
     ]);
-    return { arabic, translation };
-}
 
-export async function getPage(number: number, edition: string = 'quran-uthmani'): Promise<Ayah[]> {
-    const cacheKey = `page_${number}_${edition}`;
-    const cached = CacheManager.get<Ayah[]>(cacheKey);
-    if (cached) return cached;
+    const result = {
+        arabic: arabicRes.data.data.ayahs,
+        translation: transRes.data.data.ayahs
+    };
 
-    const response = await axios.get<QuranResponse<{ ayahs: Ayah[] }>>(`${BASE_URL}/page/${number}/${edition}`);
-    const data = response.data.data.ayahs;
-    CacheManager.set(cacheKey, data);
-    return data;
-}
+    // Optimization: Background download of the full surahs involved on this page
+    const surahNumbers = Array.from(new Set(result.arabic.map(a => a.surah?.number))).filter((n): n is number => n !== undefined);
+    surahNumbers.forEach(n => getSurahWithTranslation(n, edition)); // Trigger background cache
 
-export async function getPageWithTranslation(number: number, edition: string = 'en.sahih'): Promise<{ arabic: Ayah[], translation: Ayah[] }> {
-    const [arabic, translation] = await Promise.all([
-        getPage(number, 'quran-uthmani'),
-        getPage(number, edition)
-    ]);
-    return { arabic, translation };
+    CacheManager.set(cacheKey, result);
+    return result;
 }
 
 export async function search(keyword: string, edition: string = 'en.sahih'): Promise<Ayah[]> {
-    // Search is dynamic, so we don't cache it for now
     const response = await axios.get<QuranResponse<{ count: number, matches: Ayah[] }>>(`${BASE_URL}/search/${keyword}/all/${edition}`);
     return response.data.data.matches;
 }
