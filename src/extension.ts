@@ -5,6 +5,8 @@ import { JUZ_META } from './quranMeta';
 import { QuranProvider } from './quranProvider';
 
 export function activate(context: vscode.ExtensionContext) {
+    QuranView.setExtensionUri(context.extensionUri);
+
     // Register Tree Data Provider
     vscode.window.registerTreeDataProvider('quran-navigation', new QuranProvider());
 

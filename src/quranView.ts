@@ -4,6 +4,7 @@ import { JUZ_META } from './quranMeta';
 
 export class QuranView {
     public static currentPanel: QuranView | undefined;
+    public static extensionUri: vscode.Uri | undefined;
     private readonly _panel: vscode.WebviewPanel;
     private _disposables: vscode.Disposable[] = [];
 
@@ -44,6 +45,10 @@ export class QuranView {
             null,
             this._disposables
         );
+    }
+
+    public static setExtensionUri(uri: vscode.Uri) {
+        QuranView.extensionUri = uri;
     }
 
     public static revive(panel: vscode.WebviewPanel, title: string) {
@@ -137,12 +142,26 @@ export class QuranView {
     private _getBaseHtml(title: string, fontSize: number, surahs: { number: number, englishName: string }[]) {
         const surahOptions = surahs.map(s => `<option value="${s.number}">${s.number}. ${s.englishName}</option>`).join('');
 
+        let fontFaceCss = '';
+        if (QuranView.extensionUri) {
+            const fontPath = vscode.Uri.joinPath(QuranView.extensionUri, 'assets', 'fonts', 'KFGQPCUthmanicHafs14.ttf');
+            const fontUri = this._panel.webview.asWebviewUri(fontPath);
+            fontFaceCss = `
+                @font-face {
+                    font-family: 'UthmanicHafs';
+                    src: url('${fontUri}') format('truetype');
+                    font-display: swap;
+                }
+            `;
+        }
+
         return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
+        ${fontFaceCss}
         :root { --quran-font-size: ${fontSize}px; }
         body {
             font-family: var(--vscode-font-family);
@@ -176,7 +195,7 @@ export class QuranView {
         .bismillah-container { margin-bottom: 20px; padding-bottom: 15px; text-align: center; border-bottom: 1px solid var(--vscode-widget-border); animation: fadeIn 0.3s ease-in; }
         .bismillah-container .arabic { font-size: calc(var(--quran-font-size) * 1.4); }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .arabic { font-family: 'Scheherazade New', 'Amiri', serif; font-size: calc(var(--quran-font-size) * 1.8); direction: rtl; text-align: right; margin-bottom: 15px; line-height: 2.2; }
+        .arabic { font-family: 'UthmanicHafs', 'Scheherazade New', 'Amiri', serif; font-size: calc(var(--quran-font-size) * 1.8); direction: rtl; text-align: right; margin-bottom: 15px; line-height: 2.2; }
         .ayah-number { font-size: calc(var(--quran-font-size) * 0.8); border: 1px solid var(--vscode-descriptionForeground); border-radius: 50%; padding: 2px 8px; margin-right: 10px; display: inline-block; direction: ltr; }
         select, button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 4px 8px; cursor: pointer; }
         select:hover, button:hover { background: var(--vscode-button-hoverBackground); }
