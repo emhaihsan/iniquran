@@ -10,49 +10,43 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onView:quran-navigation"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "quran-explorer",
+          "title": "Quran",
+          "icon": "$(book)"
+        }
+      ]
+    },
+    "views": {
+      "quran-explorer": [
+        {
+          "id": "quran-navigation",
+          "name": "Quran Navigation"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "iniquran.open",
         "title": "Open Ini Quran",
-        "category": "Quran"
-      },
-      {
-        "command": "iniquran.search",
-        "title": "Search Quran Ayah",
         "category": "Quran"
       }
     ],
     "configuration": {
       "title": "Ini Quran",
       "properties": {
-        "iniquran.translationLanguage": {
-          "type": "string",
-          "default": "en.sahih",
-          "enum": [
-            "id.indonesian",
-            "en.sahih"
-          ],
-          "enumDescriptions": [
-            "Indonesian",
-            "English (Sahih International)"
-          ],
-          "description": "Translation language to be used."
-        },
-        "iniquran.showTranslation": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show or hide translation."
-        },
         "iniquran.fontSize": {
           "type": "number",
           "default": 18,
           "minimum": 12,
           "maximum": 64,
-          "description": "Font size for Quran text and translation."
+          "description": "Font size for Quran text."
         }
       }
     }
@@ -74,7 +68,5 @@
     "typescript": "^5.1.6",
     "@vscode/test-electron": "^2.3.3"
   },
-  "dependencies": {
-    "axios": "^1.4.0"
-  }
+  "dependencies": {}
 }

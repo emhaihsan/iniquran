@@ -1,66 +1,56 @@
 import * as vscode from 'vscode';
 import { QuranView } from './quranView';
-import { CacheManager } from './cacheManager';
-import { getSurahWithTranslation, getPageWithTranslation, search, getSurahs, Surah, Ayah } from './api';
+import { getSurahs, getSurahDetail, getPageAyahs } from './data';
 import { JUZ_META } from './quranMeta';
+import { QuranProvider } from './quranProvider';
 
-export async function activate(context: vscode.ExtensionContext) {
-    // Initialize Cache
-    CacheManager.init(context.globalStorageUri.fsPath);
+export function activate(context: vscode.ExtensionContext) {
+    // Register Tree Data Provider
+    vscode.window.registerTreeDataProvider('quran-navigation', new QuranProvider());
 
     // Register Webview Serializer for persistence
     vscode.window.registerWebviewPanelSerializer('quranView', {
         async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: any) {
             const title = webviewPanel.title;
-            const view = QuranView.revive(webviewPanel, title);
+            QuranView.revive(webviewPanel, title);
         }
     });
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('iniquran.open', async () => {
-            // Default: Juz 1, Page 1
+        vscode.commands.registerCommand('iniquran.open', () => {
             vscode.commands.executeCommand('iniquran.openPage', 1);
         }),
 
-        vscode.commands.registerCommand('iniquran.openSurah', async (surahNumber: number) => {
-            const surahs = await getSurahs();
-            const surah = surahs.find(s => s.number === surahNumber);
+        vscode.commands.registerCommand('iniquran.openSurah', (surahNumber: number) => {
+            const surah = getSurahs().find(s => s.number === surahNumber);
             if (!surah) return;
 
             const title = `${surah.number}. ${surah.englishName} (${surah.name})`;
             const view = QuranView.createOrShow(title);
-            
-            try {
-                const config = vscode.workspace.getConfiguration('iniquran');
-                const edition = config.get<string>('translationLanguage', 'en.sahih');
-
-                const { arabic, translation } = await getSurahWithTranslation(surah.number, edition);
-                view.update(arabic, translation, title, { type: 'surah', value: surah.number });
-            } catch (error) {
-                vscode.window.showErrorMessage(`Failed to load Surah: ${error}`);
-            }
+            const ayahs = getSurahDetail(surah.number);
+            view.update(ayahs, title, { type: 'surah', value: surah.number });
         }),
 
-        vscode.commands.registerCommand('iniquran.openPage', async (pageNumber: number) => {
+        vscode.commands.registerCommand('iniquran.openPage', (pageNumber: number) => {
             const title = `Page ${pageNumber}`;
             const view = QuranView.createOrShow(title);
 
-            try {
-                const config = vscode.workspace.getConfiguration('iniquran');
-                const edition = config.get<string>('translationLanguage', 'en.sahih');
-
-                const { arabic, translation } = await getPageWithTranslation(pageNumber, edition);
-                if (arabic && arabic.length > 0) {
-                    view.update(arabic, translation, title, { type: 'page', value: pageNumber });
-                } else {
-                    vscode.window.showErrorMessage(`No data found for Page ${pageNumber}`);
-                }
-            } catch (error) {
-                vscode.window.showErrorMessage(`Failed to load Page: ${error}`);
+            const ayahs = getPageAyahs(pageNumber);
+            if (ayahs.length > 0) {
+                view.update(ayahs, title, { type: 'page', value: pageNumber });
+            } else {
+                vscode.window.showErrorMessage(`No data found for Page ${pageNumber}`);
             }
         }),
 
-        vscode.commands.registerCommand('iniquran.navigatePage', async (direction: 'prev' | 'next') => {
+        vscode.commands.registerCommand('iniquran.openJuz', (juzNumber: number) => {
+            const meta = JUZ_META[juzNumber];
+            if (meta) {
+                vscode.commands.executeCommand('iniquran.openPage', meta.startPage);
+            }
+        }),
+
+        vscode.commands.registerCommand('iniquran.navigatePage', (direction: 'prev' | 'next') => {
             if (QuranView.currentPanel && QuranView.currentPanel.currentSource?.type === 'page') {
                 const currentPage = QuranView.currentPanel.currentSource.value;
                 const newPage = direction === 'next' ? currentPage + 1 : currentPage - 1;
@@ -70,7 +60,7 @@ export async function activate(context: vscode.ExtensionContext) {
             }
         }),
 
-        vscode.commands.registerCommand('iniquran.refreshView', async () => {
+        vscode.commands.registerCommand('iniquran.refreshView', () => {
             if (QuranView.currentPanel && QuranView.currentPanel.currentSource) {
                 const source = QuranView.currentPanel.currentSource;
                 if (source.type === 'surah') {
@@ -79,53 +69,8 @@ export async function activate(context: vscode.ExtensionContext) {
                     vscode.commands.executeCommand('iniquran.openPage', source.value);
                 }
             }
-        }),
-
-        vscode.commands.registerCommand('iniquran.search', async () => {
-            const keyword = await vscode.window.showInputBox({
-                prompt: 'Enter search keyword',
-                placeHolder: 'Example: patience, prayer, ramadhan'
-            });
-
-            if (keyword) {
-                try {
-                    const config = vscode.workspace.getConfiguration('iniquran');
-                    const edition = config.get<string>('translationLanguage', 'en.sahih');
-
-                    const results = await search(keyword, edition);
-                    if (results.length === 0) {
-                        vscode.window.showInformationMessage('No results found for that keyword.');
-                        return;
-                    }
-
-                    const items = results.map(ayah => ({
-                        label: `Surah ${ayah.surah?.englishName} Ayah ${ayah.numberInSurah}`,
-                        description: ayah.text,
-                        ayah: ayah
-                    }));
-
-                    const selected = await vscode.window.showQuickPick(items, {
-                        matchOnDescription: true,
-                        placeHolder: `Found ${results.length} results`
-                    });
-
-                    if (selected && selected.ayah.surah) {
-                        vscode.commands.executeCommand('iniquran.openSurah', selected.ayah.surah.number);
-                    }
-                } catch (error) {
-                    vscode.window.showErrorMessage(`Failed to perform search: ${error}`);
-                }
-            }
         })
     );
-
-    // Initial open and silent preload
-    const config = vscode.workspace.getConfiguration('iniquran');
-    const edition = config.get<string>('translationLanguage', 'en.sahih');
-    getSurahWithTranslation(2, edition); // Preload Al-Baqarah silently
-    
-    // Automatically open the view on startup
-    vscode.commands.executeCommand('iniquran.open');
 }
 
 export function deactivate() {}

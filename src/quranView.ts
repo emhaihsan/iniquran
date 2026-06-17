@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { Ayah, Surah, getSurahs } from './api';
+import { Ayah, getSurahs } from './data';
 import { JUZ_META } from './quranMeta';
 
 export class QuranView {
@@ -10,6 +10,40 @@ export class QuranView {
     private constructor(panel: vscode.WebviewPanel, title: string) {
         this._panel = panel;
         this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
+
+        this._panel.webview.onDidReceiveMessage(
+            (message) => {
+                switch (message.command) {
+                    case 'updateSetting':
+                        vscode.workspace.getConfiguration('iniquran').update(message.key, message.value, vscode.ConfigurationTarget.Global);
+                        return;
+                    case 'navigatePage':
+                        vscode.commands.executeCommand('iniquran.navigatePage', message.direction);
+                        return;
+                    case 'jumpToPage':
+                        vscode.commands.executeCommand('iniquran.openPage', message.page);
+                        return;
+                    case 'jumpToSurah':
+                        vscode.commands.executeCommand('iniquran.openSurah', parseInt(message.surahNumber));
+                        return;
+                    case 'switchMode':
+                        if (message.mode === 'surah') {
+                            const firstAyah = this._lastArabic[0];
+                            if (firstAyah?.surah) {
+                                vscode.commands.executeCommand('iniquran.openSurah', firstAyah.surah.number);
+                            }
+                        } else if (message.mode === 'juz') {
+                            const firstAyah = this._lastArabic[0];
+                            if (firstAyah?.page) {
+                                vscode.commands.executeCommand('iniquran.openPage', firstAyah.page);
+                            }
+                        }
+                        return;
+                }
+            },
+            null,
+            this._disposables
+        );
     }
 
     public static revive(panel: vscode.WebviewPanel, title: string) {
@@ -38,43 +72,38 @@ export class QuranView {
     }
 
     private _lastArabic: Ayah[] = [];
-    private _lastTranslation: Ayah[] = [];
     private _lastTitle: string = '';
-    public currentSource: { type: 'surah' | 'juz' | 'page', value: any } | undefined;
+    public currentSource: { type: 'surah' | 'page', value: number } | undefined;
     private _navigationMode: 'surah' | 'juz' = 'juz';
 
-    public async update(arabic: Ayah[], translation: Ayah[], title: string, source?: { type: 'surah' | 'juz' | 'page', value: any }) {
+    public update(arabic: Ayah[], title: string, source?: { type: 'surah' | 'page', value: number }) {
         this._lastArabic = arabic;
-        this._lastTranslation = translation;
         this._lastTitle = title;
         if (source) {
             this.currentSource = source;
-            if (source.type === 'surah') this._navigationMode = 'surah';
-            if (source.type === 'page' || source.type === 'juz') this._navigationMode = 'juz';
+            if (source.type === 'surah') { this._navigationMode = 'surah'; }
+            else { this._navigationMode = 'juz'; }
         }
 
         const config = vscode.workspace.getConfiguration('iniquran');
         const fontSize = config.get<number>('fontSize', 18);
-        const showTranslation = config.get<boolean>('showTranslation', true);
-        const language = config.get<string>('translationLanguage', 'en.sahih');
 
         this._panel.title = title;
 
         if (!this._panel.webview.html || this._panel.webview.html === '') {
-            const allSurahs = await getSurahs();
-            this._panel.webview.html = this._getBaseHtml(title, fontSize, showTranslation, language, allSurahs);
+            const allSurahs = getSurahs();
+            this._panel.webview.html = this._getBaseHtml(title, fontSize, allSurahs);
         }
 
-        const ayahsHtml = this._getAyahsHtml(arabic, translation, showTranslation);
+        const ayahsHtml = this._getAyahsHtml(arabic);
         const firstAyah = arabic[0];
         const surahInfo = firstAyah?.surah;
-        
+
         this._panel.webview.postMessage({
             command: 'updateContent',
             ayahsHtml,
             title,
             navigationMode: this._navigationMode,
-            currentValue: this._navigationMode === 'surah' ? surahInfo?.number : (this.currentSource?.type === 'page' ? this.currentSource.value : firstAyah?.page),
             metadata: {
                 surah: surahInfo?.number,
                 surahName: `${surahInfo?.englishName} (${surahInfo?.name})`,
@@ -83,34 +112,7 @@ export class QuranView {
             },
             juzRange: this._getJuzRange(firstAyah?.juz)
         });
-        
-        this._panel.webview.onDidReceiveMessage(
-            async (message) => {
-                switch (message.command) {
-                    case 'updateSetting':
-                        await vscode.workspace.getConfiguration('iniquran').update(message.key, message.value, vscode.ConfigurationTarget.Global);
-                        if (message.key === 'translationLanguage') {
-                            vscode.commands.executeCommand('iniquran.refreshView');
-                        }
-                        return;
-                    case 'navigatePage':
-                        vscode.commands.executeCommand('iniquran.navigatePage', message.direction);
-                        return;
-                    case 'jumpToPage':
-                        vscode.commands.executeCommand('iniquran.openPage', message.page);
-                        return;
-                    case 'jumpToSurah':
-                        vscode.commands.executeCommand('iniquran.openSurah', parseInt(message.surahNumber));
-                        return;
-                    case 'switchMode':
-                        this._navigationMode = message.mode;
-                        this.update(this._lastArabic, this._lastTranslation, this._lastTitle);
-                        return;
-                }
-            },
-            null,
-            this._disposables
-        );
+
     }
 
     private _getJuzRange(juz: number | undefined): { start: number, end: number } | null {
@@ -119,7 +121,7 @@ export class QuranView {
         return meta ? { start: meta.startPage, end: meta.endPage } : null;
     }
 
-    private _getAyahsHtml(arabic: Ayah[], translation: Ayah[], showTranslation: boolean): string {
+    private _getAyahsHtml(arabic: Ayah[]): string {
         return arabic.map((ayah, i) => {
             const isNewSurah = i > 0 && ayah.surah?.number !== arabic[i-1].surah?.number;
             return `
@@ -127,13 +129,12 @@ export class QuranView {
                 <div class="ayah-container" id="ayah-${ayah.numberInSurah}">
                     <div class="ayah-meta">Surah ${ayah.surah?.englishName} Ayah ${ayah.numberInSurah}</div>
                     <div class="arabic">${ayah.text} <span class="ayah-number">${ayah.numberInSurah}</span></div>
-                    <div class="translation ${showTranslation ? '' : 'hidden'}">${translation[i]?.text || ''}</div>
                 </div>
             `;
         }).join('');
     }
 
-    private _getBaseHtml(title: string, fontSize: number, showTranslation: boolean, language: string, surahs: Surah[]) {
+    private _getBaseHtml(title: string, fontSize: number, surahs: { number: number, englishName: string }[]) {
         const surahOptions = surahs.map(s => `<option value="${s.number}">${s.number}. ${s.englishName}</option>`).join('');
 
         return `<!DOCTYPE html>
@@ -145,7 +146,7 @@ export class QuranView {
         :root { --quran-font-size: ${fontSize}px; }
         body {
             font-family: var(--vscode-font-family);
-            padding: 20px; padding-top: 150px;
+            padding: 20px; padding-top: 120px;
             line-height: 1.6; color: var(--vscode-foreground);
             background-color: var(--vscode-editor-background);
             overflow-y: scroll;
@@ -176,11 +177,9 @@ export class QuranView {
         .surah-separator { text-align: center; margin: 40px 0; padding: 10px; background: var(--vscode-sideBar-background); font-weight: bold; border-radius: 4px; }
         .arabic { font-family: 'Scheherazade New', 'Amiri', serif; font-size: calc(var(--quran-font-size) * 1.8); direction: rtl; text-align: right; margin-bottom: 15px; line-height: 2.2; }
         .ayah-number { font-size: calc(var(--quran-font-size) * 0.8); border: 1px solid var(--vscode-descriptionForeground); border-radius: 50%; padding: 2px 8px; margin-right: 10px; display: inline-block; direction: ltr; }
-        .translation { font-size: var(--quran-font-size); color: var(--vscode-descriptionForeground); }
-        .hidden { display: none; }
         select, button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 4px 8px; cursor: pointer; }
         select:hover, button:hover { background: var(--vscode-button-hoverBackground); }
-        #loadingOverlay { position: fixed; top: 150px; left: 0; right: 0; bottom: 0; background: var(--vscode-editor-background); display: none; justify-content: center; align-items: center; z-index: 900; opacity: 0.7; }
+        #loadingOverlay { position: fixed; top: 120px; left: 0; right: 0; bottom: 0; background: var(--vscode-editor-background); display: none; justify-content: center; align-items: center; z-index: 900; opacity: 0.7; }
         .spinner { width: 40px; height: 40px; border: 4px solid var(--vscode-widget-border); border-top: 4px solid var(--vscode-textLink-foreground); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .mode-switch { display: flex; gap: 15px; align-items: center; }
@@ -216,14 +215,6 @@ export class QuranView {
                 <input type="range" id="fontSizeSlider" min="12" max="64" value="${fontSize}">
                 <span id="fontSizeDisplay">${fontSize}px</span>
             </div>
-            <div class="toolbar-group">
-                <label>Translation:</label>
-                <select id="langSelect">
-                    <option value="en.sahih" ${language === 'en.sahih' ? 'selected' : ''}>English</option>
-                    <option value="id.indonesian" ${language === 'id.indonesian' ? 'selected' : ''}>Indonesian</option>
-                </select>
-                <button id="toggleTranslation">${showTranslation ? 'Hide' : 'Show'}</button>
-            </div>
         </div>
         <div id="pageNavRow" class="toolbar-row" style="justify-content: center; gap: 40px; background-color: var(--vscode-sideBar-background); display: none;">
             <div id="prevPageContainer"></div>
@@ -246,7 +237,7 @@ export class QuranView {
         const surahSelect = document.getElementById('surahSelect');
         const modeJuz = document.getElementById('modeJuz');
         const modeSurah = document.getElementById('modeSurah');
-        
+
         window.addEventListener('message', event => {
             const message = event.data;
             if (message.command === 'updateContent') {
@@ -294,7 +285,7 @@ export class QuranView {
                 } else {
                     navRow.style.display = 'none';
                 }
-                
+
                 loadingOverlay.style.display = 'none';
                 window.scrollTo(0, 0);
             }
@@ -313,14 +304,6 @@ export class QuranView {
             document.documentElement.style.setProperty('--quran-font-size', val + 'px');
         };
         document.getElementById('fontSizeSlider').onchange = (e) => vscode.postMessage({ command: 'updateSetting', key: 'fontSize', value: parseInt(e.target.value) });
-        document.getElementById('langSelect').onchange = (e) => { showLoading(); vscode.postMessage({ command: 'updateSetting', key: 'translationLanguage', value: e.target.value }); };
-        document.getElementById('toggleTranslation').onclick = () => {
-            const translations = document.querySelectorAll('.translation');
-            const isHidden = translations[0]?.classList.contains('hidden');
-            translations.forEach(el => el.classList.toggle('hidden'));
-            document.getElementById('toggleTranslation').innerText = isHidden ? 'Hide' : 'Show';
-            vscode.postMessage({ command: 'updateSetting', key: 'showTranslation', value: isHidden });
-        };
     </script>
 </body>
 </html>`;
