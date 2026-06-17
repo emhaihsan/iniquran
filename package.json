@@ -14,24 +14,12 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "quran-explorer",
-          "title": "Quran",
-          "icon": "$(book)"
-        }
-      ]
-    },
-    "views": {
-      "quran-explorer": [
-        {
-          "id": "quran-navigation",
-          "name": "Quran Navigation"
-        }
-      ]
-    },
     "commands": [
+      {
+        "command": "iniquran.open",
+        "title": "Open Ini Quran",
+        "category": "Quran"
+      },
       {
         "command": "iniquran.search",
         "title": "Search Quran Ayah",

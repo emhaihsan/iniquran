@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { Ayah, Surah } from './api';
+import { Ayah, Surah, getSurahs } from './api';
 import { JUZ_META } from './quranMeta';
 
 export class QuranView {
@@ -18,20 +18,15 @@ export class QuranView {
     }
 
     public static createOrShow(title: string) {
-        const column = vscode.window.activeTextEditor
-            ? vscode.window.activeTextEditor.viewColumn
-            : undefined;
-
         if (QuranView.currentPanel) {
-            QuranView.currentPanel._panel.title = title;
-            QuranView.currentPanel._panel.reveal(column);
+            QuranView.currentPanel._panel.reveal(vscode.ViewColumn.One);
             return QuranView.currentPanel;
         }
 
         const panel = vscode.window.createWebviewPanel(
             'quranView',
             title,
-            column || vscode.ViewColumn.One,
+            vscode.ViewColumn.One,
             {
                 enableScripts: true,
                 retainContextWhenHidden: true
@@ -46,13 +41,16 @@ export class QuranView {
     private _lastTranslation: Ayah[] = [];
     private _lastTitle: string = '';
     public currentSource: { type: 'surah' | 'juz' | 'page', value: any } | undefined;
+    private _navigationMode: 'surah' | 'juz' = 'juz';
 
-    public update(arabic: Ayah[], translation: Ayah[], title: string, source?: { type: 'surah' | 'juz' | 'page', value: any }) {
+    public async update(arabic: Ayah[], translation: Ayah[], title: string, source?: { type: 'surah' | 'juz' | 'page', value: any }) {
         this._lastArabic = arabic;
         this._lastTranslation = translation;
         this._lastTitle = title;
         if (source) {
             this.currentSource = source;
+            if (source.type === 'surah') this._navigationMode = 'surah';
+            if (source.type === 'page' || source.type === 'juz') this._navigationMode = 'juz';
         }
 
         const config = vscode.workspace.getConfiguration('iniquran');
@@ -62,36 +60,30 @@ export class QuranView {
 
         this._panel.title = title;
 
-        // If it's the first time or the panel was disposed, set the base HTML
         if (!this._panel.webview.html || this._panel.webview.html === '') {
-            this._panel.webview.html = this._getBaseHtml(title, fontSize, showTranslation, language);
+            const allSurahs = await getSurahs();
+            this._panel.webview.html = this._getBaseHtml(title, fontSize, showTranslation, language, allSurahs);
         }
 
-        // Send data to the webview for partial update
         const ayahsHtml = this._getAyahsHtml(arabic, translation, showTranslation);
-        const isPage = this.currentSource?.type === 'page';
-        const pageNumber = isPage ? this.currentSource?.value : null;
-
         const firstAyah = arabic[0];
         const surahInfo = firstAyah?.surah;
-        const juzNumber = firstAyah?.juz;
-        const actualPageNumber = firstAyah?.page;
-
+        
         this._panel.webview.postMessage({
             command: 'updateContent',
             ayahsHtml,
             title,
-            isPage,
-            pageNumber,
+            navigationMode: this._navigationMode,
+            currentValue: this._navigationMode === 'surah' ? surahInfo?.number : (this.currentSource?.type === 'page' ? this.currentSource.value : firstAyah?.page),
             metadata: {
-                surah: `${surahInfo?.englishName} (${surahInfo?.name})`,
-                juz: juzNumber,
-                page: actualPageNumber
+                surah: surahInfo?.number,
+                surahName: `${surahInfo?.englishName} (${surahInfo?.name})`,
+                juz: firstAyah?.juz,
+                page: firstAyah?.page
             },
-            juzRange: this._getJuzRange(juzNumber)
+            juzRange: this._getJuzRange(firstAyah?.juz)
         });
         
-        // Handle messages from the webview
         this._panel.webview.onDidReceiveMessage(
             async (message) => {
                 switch (message.command) {
@@ -107,6 +99,13 @@ export class QuranView {
                     case 'jumpToPage':
                         vscode.commands.executeCommand('iniquran.openPage', message.page);
                         return;
+                    case 'jumpToSurah':
+                        vscode.commands.executeCommand('iniquran.openSurah', parseInt(message.surahNumber));
+                        return;
+                    case 'switchMode':
+                        this._navigationMode = message.mode;
+                        this.update(this._lastArabic, this._lastTranslation, this._lastTitle);
+                        return;
                 }
             },
             null,
@@ -121,7 +120,6 @@ export class QuranView {
     }
 
     private _getAyahsHtml(arabic: Ayah[], translation: Ayah[], showTranslation: boolean): string {
-        const isPage = this.currentSource?.type === 'page';
         return arabic.map((ayah, i) => {
             const isNewSurah = i > 0 && ayah.surah?.number !== arabic[i-1].surah?.number;
             return `
@@ -135,140 +133,81 @@ export class QuranView {
         }).join('');
     }
 
-    private _getBaseHtml(title: string, fontSize: number, showTranslation: boolean, language: string) {
+    private _getBaseHtml(title: string, fontSize: number, showTranslation: boolean, language: string, surahs: Surah[]) {
+        const surahOptions = surahs.map(s => `<option value="${s.number}">${s.number}. ${s.englishName}</option>`).join('');
+
         return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        :root {
-            --quran-font-size: ${fontSize}px;
-        }
+        :root { --quran-font-size: ${fontSize}px; }
         body {
             font-family: var(--vscode-font-family);
-            padding: 20px;
-            padding-top: 130px;
-            line-height: 1.6;
-            color: var(--vscode-foreground);
+            padding: 20px; padding-top: 150px;
+            line-height: 1.6; color: var(--vscode-foreground);
             background-color: var(--vscode-editor-background);
             overflow-y: scroll;
         }
         .toolbar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
+            position: fixed; top: 0; left: 0; right: 0;
             background-color: var(--vscode-sideBar-background);
             border-bottom: 1px solid var(--vscode-widget-border);
-            display: flex;
-            flex-direction: column;
-            z-index: 1000;
+            display: flex; flex-direction: column; z-index: 1000;
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
         .toolbar-row {
-            height: 40px;
-            display: flex;
-            align-items: center;
-            padding: 0 20px;
-            gap: 20px;
-            font-size: 12px;
+            height: 40px; display: flex; align-items: center;
+            padding: 0 20px; gap: 20px; font-size: 12px;
             border-bottom: 1px solid var(--vscode-widget-border);
         }
+        .nav-mode-row { justify-content: center; background: var(--vscode-editor-background); height: 30px; border-bottom: 1px solid var(--vscode-widget-border); }
         .info-bar {
-            background-color: var(--vscode-editor-background);
-            height: 35px;
-            display: flex;
-            align-items: center;
-            justify-content: space-around;
-            font-size: 13px;
-            font-weight: bold;
-            color: var(--vscode-textLink-foreground);
-            border-bottom: 1px solid var(--vscode-widget-border);
+            background-color: var(--vscode-sideBar-background);
+            height: 40px; display: flex; align-items: center;
+            justify-content: space-around; font-size: 13px;
+            font-weight: bold; color: var(--vscode-textLink-foreground);
         }
-        .info-item { display: flex; gap: 5px; }
+        .info-item { display: flex; align-items: center; gap: 8px; }
         .info-label { color: var(--vscode-descriptionForeground); font-weight: normal; }
-        .ayah-container {
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid var(--vscode-widget-border);
-            animation: fadeIn 0.3s ease-in;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .surah-separator {
-            text-align: center;
-            margin: 40px 0;
-            padding: 10px;
-            background: var(--vscode-sideBar-background);
-            font-weight: bold;
-            border-radius: 4px;
-        }
-        .ayah-meta { font-size: 12px; color: var(--vscode-descriptionForeground); margin-bottom: 10px; }
-        .arabic {
-            font-family: 'Scheherazade New', 'Amiri', serif;
-            font-size: calc(var(--quran-font-size) * 1.8);
-            direction: rtl;
-            text-align: right;
-            margin-bottom: 15px;
-            line-height: 2.2;
-        }
-        .ayah-number {
-            font-size: calc(var(--quran-font-size) * 0.8);
-            border: 1px solid var(--vscode-descriptionForeground);
-            border-radius: 50%;
-            padding: 2px 8px;
-            margin-right: 10px;
-            display: inline-block;
-            direction: ltr;
-        }
+        .ayah-container { margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid var(--vscode-widget-border); animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .surah-separator { text-align: center; margin: 40px 0; padding: 10px; background: var(--vscode-sideBar-background); font-weight: bold; border-radius: 4px; }
+        .arabic { font-family: 'Scheherazade New', 'Amiri', serif; font-size: calc(var(--quran-font-size) * 1.8); direction: rtl; text-align: right; margin-bottom: 15px; line-height: 2.2; }
+        .ayah-number { font-size: calc(var(--quran-font-size) * 0.8); border: 1px solid var(--vscode-descriptionForeground); border-radius: 50%; padding: 2px 8px; margin-right: 10px; display: inline-block; direction: ltr; }
         .translation { font-size: var(--quran-font-size); color: var(--vscode-descriptionForeground); }
         .hidden { display: none; }
-        input[type=range] { width: 80px; }
-        select, button {
-            background: var(--vscode-button-background);
-            color: var(--vscode-button-foreground);
-            border: none;
-            padding: 2px 8px;
-            cursor: pointer;
-        }
+        select, button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 4px 8px; cursor: pointer; }
         select:hover, button:hover { background: var(--vscode-button-hoverBackground); }
-        .nav-btn { font-weight: bold; min-width: 80px; }
-        #loadingOverlay {
-            position: fixed;
-            top: 130px;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: var(--vscode-editor-background);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 900;
-            opacity: 0.7;
-        }
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid var(--vscode-widget-border);
-            border-top: 4px solid var(--vscode-textLink-foreground);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
+        #loadingOverlay { position: fixed; top: 150px; left: 0; right: 0; bottom: 0; background: var(--vscode-editor-background); display: none; justify-content: center; align-items: center; z-index: 900; opacity: 0.7; }
+        .spinner { width: 40px; height: 40px; border: 4px solid var(--vscode-widget-border); border-top: 4px solid var(--vscode-textLink-foreground); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .mode-switch { display: flex; gap: 15px; align-items: center; }
+        .mode-switch label { cursor: pointer; display: flex; align-items: center; gap: 5px; }
     </style>
 </head>
 <body>
     <div id="loadingOverlay"><div class="spinner"></div></div>
     <div class="toolbar">
+        <div class="nav-mode-row toolbar-row">
+            <div class="mode-switch">
+                <span class="info-label">Navigation Mode:</span>
+                <label><input type="radio" name="navMode" value="juz" id="modeJuz"> Juz / Page</label>
+                <label><input type="radio" name="navMode" value="surah" id="modeSurah"> Surah</label>
+            </div>
+        </div>
         <div class="info-bar">
-            <div class="info-item"><span class="info-label">Surah:</span><span id="infoSurah">-</span></div>
-            <div class="info-item"><span class="info-label">Juz:</span><span id="infoJuz">-</span></div>
+            <div class="info-item"><span class="info-label">Surah:</span><span id="displaySurahName">-</span></div>
+            <div id="juzInfo" class="info-item"><span class="info-label">Juz:</span><span id="displayJuzNum">-</span></div>
             <div class="info-item">
-                <span class="info-label">Page:</span>
-                <select id="pageSelect" style="background: transparent; color: inherit; font-weight: bold; padding: 0;"></select>
+                <span id="selectorLabel" class="info-label">Page:</span>
+                <select id="mainSelector" style="background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border); font-weight: bold;">
+                    <option id="pagePlaceholder">Loading...</option>
+                </select>
+                <div id="surahSelectorContainer" style="display:none;">
+                    <select id="surahSelect">${surahOptions}</select>
+                </div>
             </div>
         </div>
         <div class="toolbar-row">
@@ -303,60 +242,51 @@ export class QuranView {
         const contentDiv = document.getElementById('quranContent');
         const viewTitle = document.getElementById('viewTitle');
         const loadingOverlay = document.getElementById('loadingOverlay');
+        const mainSelector = document.getElementById('mainSelector');
+        const surahSelect = document.getElementById('surahSelect');
+        const modeJuz = document.getElementById('modeJuz');
+        const modeSurah = document.getElementById('modeSurah');
         
-        // Settings elements
-        const slider = document.getElementById('fontSizeSlider');
-        const display = document.getElementById('fontSizeDisplay');
-        const langSelect = document.getElementById('langSelect');
-        const toggleBtn = document.getElementById('toggleTranslation');
-
         window.addEventListener('message', event => {
             const message = event.data;
             if (message.command === 'updateContent') {
                 contentDiv.innerHTML = message.ayahsHtml;
                 viewTitle.innerText = message.title;
-                
-                // Update metadata
-                document.getElementById('infoSurah').innerText = message.metadata.surah;
-                document.getElementById('infoJuz').innerText = message.metadata.juz;
-                
-                // Update Page Select Dropdown
-                const pageSelect = document.getElementById('pageSelect');
-                pageSelect.innerHTML = '';
-                if (message.juzRange) {
-                    for (let i = message.juzRange.start; i <= message.juzRange.end; i++) {
-                        const opt = document.createElement('option');
-                        opt.value = i;
-                        opt.innerText = i;
-                        if (i === message.metadata.page) opt.selected = true;
-                        pageSelect.appendChild(opt);
+                document.getElementById('displaySurahName').innerText = message.metadata.surahName;
+                document.getElementById('displayJuzNum').innerText = message.metadata.juz;
+
+                // Sync Radios
+                if (message.navigationMode === 'juz') modeJuz.checked = true;
+                else modeSurah.checked = true;
+
+                // Setup Selector
+                if (message.navigationMode === 'juz') {
+                    document.getElementById('selectorLabel').innerText = 'Page:';
+                    mainSelector.style.display = 'inline-block';
+                    surahSelect.parentElement.style.display = 'none';
+                    mainSelector.innerHTML = '';
+                    if (message.juzRange) {
+                        for (let i = message.juzRange.start; i <= message.juzRange.end; i++) {
+                            const opt = document.createElement('option');
+                            opt.value = i; opt.innerText = i;
+                            if (i === message.metadata.page) opt.selected = true;
+                            mainSelector.appendChild(opt);
+                        }
                     }
                 } else {
-                    const opt = document.createElement('option');
-                    opt.value = message.metadata.page;
-                    opt.innerText = message.metadata.page;
-                    opt.selected = true;
-                    pageSelect.appendChild(opt);
+                    document.getElementById('selectorLabel').innerText = 'Surah:';
+                    mainSelector.style.display = 'none';
+                    surahSelect.parentElement.style.display = 'inline-block';
+                    surahSelect.value = message.metadata.surah;
                 }
 
-                pageSelect.onchange = (e) => {
-                    showLoading();
-                    vscode.postMessage({ command: 'jumpToPage', page: parseInt(e.target.value) });
-                };
-
-                // Update Page Nav
+                // Update Nav Row
                 const navRow = document.getElementById('pageNavRow');
-                if (message.isPage) {
+                if (message.navigationMode === 'juz') {
                     navRow.style.display = 'flex';
-                    document.getElementById('currentPageDisplay').innerText = 'Page ' + message.pageNumber;
-                    
-                    const prevContainer = document.getElementById('prevPageContainer');
-                    const nextContainer = document.getElementById('nextPageContainer');
-                    
-                    prevContainer.innerHTML = message.pageNumber > 1 ? '<button class="nav-btn" id="prevPage">&larr; Page ' + (message.pageNumber - 1) + '</button>' : '<div style="min-width: 80px;"></div>';
-                    nextContainer.innerHTML = message.pageNumber < 604 ? '<button class="nav-btn" id="nextPage">Page ' + (message.pageNumber + 1) + ' &rarr;</button>' : '<div style="min-width: 80px;"></div>';
-                    
-                    // Re-bind listeners
+                    document.getElementById('currentPageDisplay').innerText = 'Page ' + message.metadata.page;
+                    document.getElementById('prevPageContainer').innerHTML = message.metadata.page > 1 ? '<button class="nav-btn" id="prevPage">&larr; Page ' + (message.metadata.page - 1) + '</button>' : '<div style="min-width: 80px;"></div>';
+                    document.getElementById('nextPageContainer').innerHTML = message.metadata.page < 604 ? '<button class="nav-btn" id="nextPage">Page ' + (message.metadata.page + 1) + ' &rarr;</button>' : '<div style="min-width: 80px;"></div>';
                     const pBtn = document.getElementById('prevPage');
                     const nBtn = document.getElementById('nextPage');
                     if (pBtn) pBtn.onclick = () => { showLoading(); vscode.postMessage({ command: 'navigatePage', direction: 'prev' }); };
@@ -370,30 +300,25 @@ export class QuranView {
             }
         });
 
-        function showLoading() {
-            loadingOverlay.style.display = 'flex';
-        }
+        function showLoading() { loadingOverlay.style.display = 'flex'; }
 
-        slider.oninput = (e) => {
+        modeJuz.onchange = () => vscode.postMessage({ command: 'switchMode', mode: 'juz' });
+        modeSurah.onchange = () => vscode.postMessage({ command: 'switchMode', mode: 'surah' });
+        mainSelector.onchange = (e) => { showLoading(); vscode.postMessage({ command: 'jumpToPage', page: parseInt(e.target.value) }); };
+        surahSelect.onchange = (e) => { showLoading(); vscode.postMessage({ command: 'jumpToSurah', surahNumber: e.target.value }); };
+
+        document.getElementById('fontSizeSlider').oninput = (e) => {
             const val = e.target.value;
-            display.innerText = val + 'px';
+            document.getElementById('fontSizeDisplay').innerText = val + 'px';
             document.documentElement.style.setProperty('--quran-font-size', val + 'px');
         };
-
-        slider.onchange = (e) => {
-            vscode.postMessage({ command: 'updateSetting', key: 'fontSize', value: parseInt(e.target.value) });
-        };
-
-        langSelect.onchange = (e) => {
-            showLoading();
-            vscode.postMessage({ command: 'updateSetting', key: 'translationLanguage', value: e.target.value });
-        };
-
-        toggleBtn.onclick = () => {
+        document.getElementById('fontSizeSlider').onchange = (e) => vscode.postMessage({ command: 'updateSetting', key: 'fontSize', value: parseInt(e.target.value) });
+        document.getElementById('langSelect').onchange = (e) => { showLoading(); vscode.postMessage({ command: 'updateSetting', key: 'translationLanguage', value: e.target.value }); };
+        document.getElementById('toggleTranslation').onclick = () => {
             const translations = document.querySelectorAll('.translation');
             const isHidden = translations[0]?.classList.contains('hidden');
             translations.forEach(el => el.classList.toggle('hidden'));
-            toggleBtn.innerText = isHidden ? 'Hide' : 'Show';
+            document.getElementById('toggleTranslation').innerText = isHidden ? 'Hide' : 'Show';
             vscode.postMessage({ command: 'updateSetting', key: 'showTranslation', value: isHidden });
         };
     </script>
