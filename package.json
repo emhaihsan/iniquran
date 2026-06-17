@@ -1,0 +1,60 @@
+{
+  "name": "iniquran",
+  "displayName": "Ini Quran",
+  "description": "Baca Quran di VS Code",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "quran-explorer",
+          "title": "Quran",
+          "icon": "$(book)"
+        }
+      ]
+    },
+    "views": {
+      "quran-explorer": [
+        {
+          "id": "quran-navigation",
+          "name": "Navigasi Quran"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "iniquran.search",
+        "title": "Cari Ayat Quran",
+        "category": "Quran"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@types/node": "16.x",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.45.0",
+    "typescript": "^5.1.6",
+    "@vscode/test-electron": "^2.3.3"
+  },
+  "dependencies": {
+    "axios": "^1.4.0"
+  }
+}
