@@ -2,6 +2,12 @@
 
 All notable changes to the "Ini Quran" extension will be documented in this file.
 
+## [1.0.3] - 2026-06-18
+
+### Added
+- Embedded KFGQPC Uthmanic Hafs font for authentic mushaf rendering.
+- Fixed incorrect diacritic display for fathah, kasrah, and tanwin combinations.
+
 ## [1.0.2] - 2026-06-18
 
 ### Fixed

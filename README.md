@@ -1,6 +1,6 @@
 # Ini Quran
 
-[![Version](https://img.shields.io/badge/version-1.0.2-blue)](https://github.com/emhaihsan/iniquran/releases)
+[![Version](https://img.shields.io/badge/version-1.0.3-blue)](https://github.com/emhaihsan/iniquran/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![VS Code](https://img.shields.io/badge/VS%20Code-%5E1.80.0-blue)](https://code.visualstudio.com/)
 
