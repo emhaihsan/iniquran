@@ -7,6 +7,17 @@ export function activate(context: vscode.ExtensionContext) {
     const quranProvider = new QuranProvider();
     vscode.window.registerTreeDataProvider('quran-navigation', quranProvider);
 
+    // Register Webview Serializer for persistence
+    vscode.window.registerWebviewPanelSerializer('quranView', {
+        async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: any) {
+            const title = webviewPanel.title;
+            const view = QuranView.revive(webviewPanel, title);
+            
+            // If there's saved state, we could restore content immediately
+            // For now, it will just show the last title and wait for content
+        }
+    });
+
     context.subscriptions.push(
         vscode.commands.registerCommand('iniquran.openSurah', async (surah: Surah) => {
             const title = `${surah.number}. ${surah.englishName} (${surah.name})`;

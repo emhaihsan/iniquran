@@ -11,6 +11,11 @@ export class QuranView {
         this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
     }
 
+    public static revive(panel: vscode.WebviewPanel, title: string) {
+        QuranView.currentPanel = new QuranView(panel, title);
+        return QuranView.currentPanel;
+    }
+
     public static createOrShow(title: string) {
         const column = vscode.window.activeTextEditor
             ? vscode.window.activeTextEditor.viewColumn
