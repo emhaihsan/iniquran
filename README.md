@@ -1,41 +1,36 @@
 # Ini Quran (iniquran)
 
-Extension VS Code untuk membaca Al-Quran dengan navigasi mudah dan terjemahan Bahasa Indonesia.
+A VS Code extension for reading the Holy Quran -- **fully offline, pure Uthmani Arabic text, no translation**.
 
-## Fitur
+## Features
 
-- 📖 **Navigasi Surah & Juz**: Telusuri Quran berdasarkan Surah (1-114) atau Juz (1-30) langsung dari sidebar.
-- 🇮🇩 **Terjemahan Indonesia**: Teks Arab (Uthmani) bersandingan dengan terjemahan Bahasa Indonesia yang akurat.
-- 🔍 **Pencarian Ayat**: Cari ayat berdasarkan kata kunci (misal: "sabar", "shalat", "ramadhan").
-- 🎨 **Integrasi Tema**: Mendukung tema gelap (Dark Mode) dan terang (Light Mode) VS Code.
+- 📖 **Surah & Juz Navigation**: Browse the Quran by Surah (1-114) or Juz (1-30) directly from the sidebar.
+- 🔌 **100% Offline**: Quran data is embedded within the extension, no internet connection required.
+- 🎨 **Theme Integration**: Supports both VS Code Dark Mode and Light Mode.
+- 🔤 **Font Size**: Adjust Arabic text size directly from the toolbar.
 
-## Cara Install (Development)
+## Development Setup
 
-Jika Anda ingin menjalankan extension ini dari source code:
-
-1.  **Clone atau buka folder ini** di VS Code.
-2.  **Instal dependensi**:
+1.  **Clone or open this folder** in VS Code.
+2.  **Install dependencies**:
     ```bash
     npm install
     ```
-3.  **Kompilasi kode**:
+3.  **Compile**:
     ```bash
     npm run compile
     ```
-4.  **Jalankan Extension**:
-    - Tekan `F5` di VS Code untuk membuka jendela *Extension Development Host*.
-    - Extension akan aktif di jendela baru tersebut.
+4.  **Run Extension**:
+    - Press `F5` in VS Code to open the *Extension Development Host*.
+    - Click the **Book (Quran)** icon in the Activity Bar to open the navigation panel.
 
-## Cara Pakai
+## Usage
 
-1.  Klik ikon **Buku (Quran)** di Activity Bar (sebelah kiri).
-2.  Pilih kategori **Surah** atau **Juz**.
-3.  Klik pada item yang diinginkan untuk membuka tampilan baca di editor.
-4.  Untuk mencari ayat, tekan `Ctrl+Shift+P` (atau `Cmd+Shift+P` di Mac) dan ketik **"Cari Ayat Quran"**.
+1.  Click the **Book (Quran)** icon in the Activity Bar (left side).
+2.  Select the **Surah** or **Juz** category.
+3.  Click an item to open the reading view in the editor.
+4.  Use the top toolbar to navigate pages, switch between Surah/Page mode, or adjust font size.
 
-## Sumber Data
+## Data Source
 
-Data Quran dan terjemahan diambil dari [Al Quran Cloud API](https://alquran.cloud/api).
-
----
-Dibuat dengan ❤️ untuk memudahkan membaca Quran sambil ngoding.
+Quran text (Uthmani) is embedded locally from [Al Quran Cloud API](https://alquran.cloud/api).
