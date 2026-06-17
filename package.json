@@ -2,8 +2,8 @@
   "name": "iniquran",
   "displayName": "Ini Quran",
   "description": "Read Quran in VS Code",
-  "version": "1.0.1",
-  "publisher": "emhaihsan",
+  "version": "1.0.2",
+  "publisher": "GabutDev",
   "license": "MIT",
   "icon": "icon.png",
   "engines": {

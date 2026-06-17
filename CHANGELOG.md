@@ -2,6 +2,11 @@
 
 All notable changes to the "Ini Quran" extension will be documented in this file.
 
+## [1.0.2] - 2026-06-18
+
+### Fixed
+- Corrected Arabic diacritics in Surah Al-Ahzab (33:40).
+
 ## [1.0.1] - 2026-06-17
 
 ### Fixed
