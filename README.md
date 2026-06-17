@@ -6,6 +6,8 @@
 
 A lightweight, fully offline Quran reader for VS Code. Read the Holy Quran in authentic Uthmani script directly inside your editor — no internet connection, no translations, no distractions.
 
+![Ini Quran Preview](preview.png)
+
 ## Features
 
 - **📖 Surah & Juz Navigation** — Browse all 114 Surahs and 30 Juz directly from the sidebar panel.
