@@ -17,7 +17,8 @@ export class QuranProvider implements vscode.TreeDataProvider<QuranItem> {
         if (!element) {
             return [
                 new QuranItem('Surah', vscode.TreeItemCollapsibleState.Collapsed, 'category', 'surah-root'),
-                new QuranItem('Juz', vscode.TreeItemCollapsibleState.Collapsed, 'category', 'juz-root')
+                new QuranItem('Juz', vscode.TreeItemCollapsibleState.Collapsed, 'category', 'juz-root'),
+                new QuranItem('Halaman', vscode.TreeItemCollapsibleState.Collapsed, 'category', 'page-root')
             ];
         }
 
@@ -51,6 +52,42 @@ export class QuranProvider implements vscode.TreeDataProvider<QuranItem> {
             ));
         }
 
+        if (element.contextValue === 'page-root') {
+            // Group pages by 50 to avoid a long list
+            const groups = [];
+            for (let i = 1; i <= 604; i += 50) {
+                const end = Math.min(i + 49, 604);
+                groups.push(new QuranItem(
+                    `Halaman ${i} - ${end}`,
+                    vscode.TreeItemCollapsibleState.Collapsed,
+                    'category',
+                    `page-group-${i}-${end}`
+                ));
+            }
+            return groups;
+        }
+
+        if (element.contextValue?.startsWith('page-group-')) {
+            const [, , startStr, endStr] = element.contextValue.split('-');
+            const start = parseInt(startStr);
+            const end = parseInt(endStr);
+            const pages = [];
+            for (let i = start; i <= end; i++) {
+                pages.push(new QuranItem(
+                    `Halaman ${i}`,
+                    vscode.TreeItemCollapsibleState.None,
+                    'page',
+                    'page-item',
+                    {
+                        command: 'iniquran.openPage',
+                        title: 'Open Page',
+                        arguments: [i]
+                    }
+                ));
+            }
+            return pages;
+        }
+
         return [];
     }
 }
@@ -70,6 +107,8 @@ export class QuranItem extends vscode.TreeItem {
             this.iconPath = new vscode.ThemeIcon('book');
         } else if (type === 'juz') {
             this.iconPath = new vscode.ThemeIcon('layers');
+        } else if (type === 'page') {
+            this.iconPath = new vscode.ThemeIcon('file-text');
         }
     }
 }

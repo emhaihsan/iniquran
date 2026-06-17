@@ -37,7 +37,37 @@
         "title": "Cari Ayat Quran",
         "category": "Quran"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Ini Quran",
+      "properties": {
+        "iniquran.translationLanguage": {
+          "type": "string",
+          "default": "id.indonesian",
+          "enum": [
+            "id.indonesian",
+            "en.sahih"
+          ],
+          "enumDescriptions": [
+            "Bahasa Indonesia",
+            "English (Sahih International)"
+          ],
+          "description": "Bahasa terjemahan yang digunakan."
+        },
+        "iniquran.showTranslation": {
+          "type": "boolean",
+          "default": true,
+          "description": "Tampilkan atau sembunyikan terjemahan."
+        },
+        "iniquran.fontSize": {
+          "type": "number",
+          "default": 18,
+          "minimum": 12,
+          "maximum": 64,
+          "description": "Ukuran font untuk teks Quran dan terjemahan."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
