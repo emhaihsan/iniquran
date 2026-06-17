@@ -52,7 +52,7 @@ export async function getSurahDetail(number: number, edition: string = 'quran-ut
     return data;
 }
 
-export async function getSurahWithTranslation(number: number, edition: string = 'id.indonesian'): Promise<{ arabic: Ayah[], translation: Ayah[] }> {
+export async function getSurahWithTranslation(number: number, edition: string = 'en.sahih'): Promise<{ arabic: Ayah[], translation: Ayah[] }> {
     const [arabic, translation] = await Promise.all([
         getSurahDetail(number, 'quran-uthmani'),
         getSurahDetail(number, edition)
@@ -71,7 +71,7 @@ export async function getJuz(number: number, edition: string = 'quran-uthmani'):
     return data;
 }
 
-export async function getJuzWithTranslation(number: number, edition: string = 'id.indonesian'): Promise<{ arabic: Ayah[], translation: Ayah[] }> {
+export async function getJuzWithTranslation(number: number, edition: string = 'en.sahih'): Promise<{ arabic: Ayah[], translation: Ayah[] }> {
     const [arabic, translation] = await Promise.all([
         getJuz(number, 'quran-uthmani'),
         getJuz(number, edition)
@@ -90,7 +90,7 @@ export async function getPage(number: number, edition: string = 'quran-uthmani')
     return data;
 }
 
-export async function getPageWithTranslation(number: number, edition: string = 'id.indonesian'): Promise<{ arabic: Ayah[], translation: Ayah[] }> {
+export async function getPageWithTranslation(number: number, edition: string = 'en.sahih'): Promise<{ arabic: Ayah[], translation: Ayah[] }> {
     const [arabic, translation] = await Promise.all([
         getPage(number, 'quran-uthmani'),
         getPage(number, edition)
@@ -98,7 +98,7 @@ export async function getPageWithTranslation(number: number, edition: string = '
     return { arabic, translation };
 }
 
-export async function search(keyword: string, edition: string = 'id.indonesian'): Promise<Ayah[]> {
+export async function search(keyword: string, edition: string = 'en.sahih'): Promise<Ayah[]> {
     // Search is dynamic, so we don't cache it for now
     const response = await axios.get<QuranResponse<{ count: number, matches: Ayah[] }>>(`${BASE_URL}/search/${keyword}/all/${edition}`);
     return response.data.data.matches;

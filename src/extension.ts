@@ -33,18 +33,18 @@ export function activate(context: vscode.ExtensionContext) {
             
             try {
                 const config = vscode.workspace.getConfiguration('iniquran');
-                const edition = config.get<string>('translationLanguage', 'id.indonesian');
+                const edition = config.get<string>('translationLanguage', 'en.sahih');
 
                 vscode.window.withProgress({
                     location: vscode.ProgressLocation.Notification,
-                    title: `Memuat ${surah.englishName}...`,
+                    title: `Loading ${surah.englishName}...`,
                     cancellable: false
                 }, async () => {
                     const { arabic, translation } = await getSurahWithTranslation(surah.number, edition);
                     view.update(arabic, translation, title, { type: 'surah', value: surah });
                 });
             } catch (error) {
-                vscode.window.showErrorMessage(`Gagal memuat Surah: ${error}`);
+                vscode.window.showErrorMessage(`Failed to load Surah: ${error}`);
             }
         }),
 
@@ -56,23 +56,23 @@ export function activate(context: vscode.ExtensionContext) {
         }),
 
         vscode.commands.registerCommand('iniquran.openPage', async (pageNumber: number) => {
-            const title = `Halaman ${pageNumber}`;
+            const title = `Page ${pageNumber}`;
             const view = QuranView.createOrShow(title);
 
             try {
                 const config = vscode.workspace.getConfiguration('iniquran');
-                const edition = config.get<string>('translationLanguage', 'id.indonesian');
+                const edition = config.get<string>('translationLanguage', 'en.sahih');
 
                 vscode.window.withProgress({
                     location: vscode.ProgressLocation.Notification,
-                    title: `Memuat Halaman ${pageNumber}...`,
+                    title: `Loading Page ${pageNumber}...`,
                     cancellable: false
                 }, async () => {
                     const { arabic, translation } = await getPageWithTranslation(pageNumber, edition);
                     view.update(arabic, translation, title, { type: 'page', value: pageNumber });
                 });
             } catch (error) {
-                vscode.window.showErrorMessage(`Gagal memuat Halaman: ${error}`);
+                vscode.window.showErrorMessage(`Failed to load Page: ${error}`);
             }
         }),
 
@@ -101,18 +101,18 @@ export function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('iniquran.search', async () => {
             const keyword = await vscode.window.showInputBox({
-                prompt: 'Masukkan kata kunci pencarian',
-                placeHolder: 'Contoh: sabar, prayer, ramadhan'
+                prompt: 'Enter search keyword',
+                placeHolder: 'Example: patience, prayer, ramadhan'
             });
 
             if (keyword) {
                 try {
                     const config = vscode.workspace.getConfiguration('iniquran');
-                    const edition = config.get<string>('translationLanguage', 'id.indonesian');
+                    const edition = config.get<string>('translationLanguage', 'en.sahih');
 
                     const results = await search(keyword, edition);
                     if (results.length === 0) {
-                        vscode.window.showInformationMessage('Tidak ditemukan hasil untuk kata kunci tersebut.');
+                        vscode.window.showInformationMessage('No results found for that keyword.');
                         return;
                     }
 
@@ -124,14 +124,14 @@ export function activate(context: vscode.ExtensionContext) {
 
                     const selected = await vscode.window.showQuickPick(items, {
                         matchOnDescription: true,
-                        placeHolder: `Ditemukan ${results.length} hasil`
+                        placeHolder: `Found ${results.length} results`
                     });
 
                     if (selected && selected.ayah.surah) {
                         vscode.commands.executeCommand('iniquran.openSurah', selected.ayah.surah);
                     }
                 } catch (error) {
-                    vscode.window.showErrorMessage(`Gagal melakukan pencarian: ${error}`);
+                    vscode.window.showErrorMessage(`Failed to perform search: ${error}`);
                 }
             }
         })

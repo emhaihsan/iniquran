@@ -1,7 +1,7 @@
 {
   "name": "iniquran",
   "displayName": "Ini Quran",
-  "description": "Baca Quran di VS Code",
+  "description": "Read Quran in VS Code",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.80.0"
@@ -27,14 +27,14 @@
       "quran-explorer": [
         {
           "id": "quran-navigation",
-          "name": "Navigasi Quran"
+          "name": "Quran Navigation"
         }
       ]
     },
     "commands": [
       {
         "command": "iniquran.search",
-        "title": "Cari Ayat Quran",
+        "title": "Search Quran Ayah",
         "category": "Quran"
       }
     ],
@@ -43,28 +43,28 @@
       "properties": {
         "iniquran.translationLanguage": {
           "type": "string",
-          "default": "id.indonesian",
+          "default": "en.sahih",
           "enum": [
             "id.indonesian",
             "en.sahih"
           ],
           "enumDescriptions": [
-            "Bahasa Indonesia",
+            "Indonesian",
             "English (Sahih International)"
           ],
-          "description": "Bahasa terjemahan yang digunakan."
+          "description": "Translation language to be used."
         },
         "iniquran.showTranslation": {
           "type": "boolean",
           "default": true,
-          "description": "Tampilkan atau sembunyikan terjemahan."
+          "description": "Show or hide translation."
         },
         "iniquran.fontSize": {
           "type": "number",
           "default": 18,
           "minimum": 12,
           "maximum": 64,
-          "description": "Ukuran font untuk teks Quran dan terjemahan."
+          "description": "Font size for Quran text and translation."
         }
       }
     }

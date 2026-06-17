@@ -18,7 +18,7 @@ export class QuranProvider implements vscode.TreeDataProvider<QuranItem> {
             return [
                 new QuranItem('Surah', vscode.TreeItemCollapsibleState.Collapsed, 'category', 'surah-root'),
                 new QuranItem('Juz', vscode.TreeItemCollapsibleState.Collapsed, 'category', 'juz-root'),
-                new QuranItem('Halaman', vscode.TreeItemCollapsibleState.Collapsed, 'category', 'page-root')
+                new QuranItem('Page', vscode.TreeItemCollapsibleState.Collapsed, 'category', 'page-root')
             ];
         }
 
@@ -58,7 +58,7 @@ export class QuranProvider implements vscode.TreeDataProvider<QuranItem> {
             for (let i = 1; i <= 604; i += 50) {
                 const end = Math.min(i + 49, 604);
                 groups.push(new QuranItem(
-                    `Halaman ${i} - ${end}`,
+                    `Page ${i} - ${end}`,
                     vscode.TreeItemCollapsibleState.Collapsed,
                     'category',
                     `page-group-${i}-${end}`
@@ -74,7 +74,7 @@ export class QuranProvider implements vscode.TreeDataProvider<QuranItem> {
             const pages = [];
             for (let i = start; i <= end; i++) {
                 pages.push(new QuranItem(
-                    `Halaman ${i}`,
+                    `Page ${i}`,
                     vscode.TreeItemCollapsibleState.None,
                     'page',
                     'page-item',

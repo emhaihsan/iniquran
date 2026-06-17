@@ -57,7 +57,7 @@ export class QuranView {
         const config = vscode.workspace.getConfiguration('iniquran');
         const fontSize = config.get<number>('fontSize', 18);
         const showTranslation = config.get<boolean>('showTranslation', true);
-        const language = config.get<string>('translationLanguage', 'id.indonesian');
+        const language = config.get<string>('translationLanguage', 'en.sahih');
 
         this._panel.title = title;
         this._panel.webview.html = this._getHtmlForWebview(arabic, translation, title, fontSize, showTranslation, language);
@@ -88,14 +88,23 @@ export class QuranView {
         const isPage = this.currentSource?.type === 'page';
         const pageNumber = isPage ? this.currentSource?.value : null;
 
-        const ayahsHtml = arabic.map((ayah, i) => `
-            <div class="ayah-container" id="ayah-${ayah.numberInSurah}">
-                ${!isPage && i === 0 ? `<div class="surah-info">Surah ${ayah.surah?.englishName}</div>` : ''}
-                ${isPage ? `<div class="ayah-meta">Surah ${ayah.surah?.englishName} Ayat ${ayah.numberInSurah}</div>` : ''}
-                <div class="arabic">${ayah.text} <span class="ayah-number">${ayah.numberInSurah}</span></div>
-                <div class="translation ${showTranslation ? '' : 'hidden'}">${translation[i]?.text || ''}</div>
-            </div>
-        `).join('');
+        // Extract metadata from the first ayah for the header
+        const firstAyah = arabic[0];
+        const surahInfo = firstAyah?.surah;
+        const juzNumber = firstAyah?.juz;
+        const actualPageNumber = firstAyah?.page;
+
+        const ayahsHtml = arabic.map((ayah, i) => {
+            const isNewSurah = i > 0 && ayah.surah?.number !== arabic[i-1].surah?.number;
+            return `
+                ${isNewSurah ? `<div class="surah-separator">Surah ${ayah.surah?.englishName}</div>` : ''}
+                <div class="ayah-container" id="ayah-${ayah.numberInSurah}">
+                    <div class="ayah-meta">Surah ${ayah.surah?.englishName} Ayat ${ayah.numberInSurah}</div>
+                    <div class="arabic">${ayah.text} <span class="ayah-number">${ayah.numberInSurah}</span></div>
+                    <div class="translation ${showTranslation ? '' : 'hidden'}">${translation[i]?.text || ''}</div>
+                </div>
+            `;
+        }).join('');
 
         return `<!DOCTYPE html>
 <html lang="en">
@@ -110,7 +119,7 @@ export class QuranView {
         body {
             font-family: var(--vscode-font-family);
             padding: 20px;
-            padding-top: 100px;
+            padding-top: 130px;
             line-height: 1.6;
             color: var(--vscode-foreground);
             background-color: var(--vscode-editor-background);
@@ -125,6 +134,7 @@ export class QuranView {
             display: flex;
             flex-direction: column;
             z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
         .toolbar-row {
             height: 40px;
@@ -135,32 +145,47 @@ export class QuranView {
             font-size: 12px;
             border-bottom: 1px solid var(--vscode-widget-border);
         }
+        .info-bar {
+            background-color: var(--vscode-editor-background);
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            font-size: 13px;
+            font-weight: bold;
+            color: var(--vscode-textLink-foreground);
+            border-bottom: 1px solid var(--vscode-widget-border);
+        }
+        .info-item {
+            display: flex;
+            gap: 5px;
+        }
+        .info-label {
+            color: var(--vscode-descriptionForeground);
+            font-weight: normal;
+        }
         .toolbar-group {
             display: flex;
             align-items: center;
             gap: 10px;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 40px;
-            border-bottom: 1px solid var(--vscode-widget-border);
-            padding-bottom: 20px;
         }
         .ayah-container {
             margin-bottom: 30px;
             padding-bottom: 20px;
             border-bottom: 1px solid var(--vscode-widget-border);
         }
+        .surah-separator {
+            text-align: center;
+            margin: 40px 0;
+            padding: 10px;
+            background: var(--vscode-sideBar-background);
+            font-weight: bold;
+            border-radius: 4px;
+        }
         .ayah-meta {
             font-size: 12px;
             color: var(--vscode-descriptionForeground);
             margin-bottom: 10px;
-        }
-        .surah-info {
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 15px;
-            color: var(--vscode-textLink-foreground);
         }
         .arabic {
             font-family: 'Scheherazade New', 'Amiri', serif;
@@ -168,7 +193,7 @@ export class QuranView {
             direction: rtl;
             text-align: right;
             margin-bottom: 15px;
-            line-height: 2;
+            line-height: 2.2;
         }
         .ayah-number {
             font-size: calc(var(--quran-font-size) * 0.8);
@@ -207,32 +232,44 @@ export class QuranView {
 </head>
 <body>
     <div class="toolbar">
+        <div class="info-bar">
+            <div class="info-item">
+                <span class="info-label">Surah:</span>
+                <span>${surahInfo?.englishName} (${surahInfo?.name})</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Juz:</span>
+                <span>${juzNumber}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Page:</span>
+                <span>${actualPageNumber}</span>
+            </div>
+        </div>
         <div class="toolbar-row">
             <div class="toolbar-group">
-                <label>Ukuran Font:</label>
+                <label>Font Size:</label>
                 <input type="range" id="fontSizeSlider" min="12" max="64" value="${fontSize}">
                 <span id="fontSizeDisplay">${fontSize}px</span>
             </div>
             <div class="toolbar-group">
-                <label>Terjemahan:</label>
+                <label>Translation:</label>
                 <select id="langSelect">
-                    <option value="id.indonesian" ${language === 'id.indonesian' ? 'selected' : ''}>Indonesia</option>
                     <option value="en.sahih" ${language === 'en.sahih' ? 'selected' : ''}>English</option>
+                    <option value="id.indonesian" ${language === 'id.indonesian' ? 'selected' : ''}>Indonesian</option>
                 </select>
-                <button id="toggleTranslation">${showTranslation ? 'Sembunyikan' : 'Tampilkan'}</button>
+                <button id="toggleTranslation">${showTranslation ? 'Hide' : 'Show'}</button>
             </div>
         </div>
         ${isPage ? `
-        <div class="toolbar-row" style="justify-content: center; gap: 40px;">
-            <button class="nav-btn" id="prevPage" ${pageNumber <= 1 ? 'disabled' : ''}>&larr; Halaman ${pageNumber - 1}</button>
-            <span style="font-weight: bold;">Halaman ${pageNumber}</span>
-            <button class="nav-btn" id="nextPage" ${pageNumber >= 604 ? 'disabled' : ''}>Halaman ${pageNumber + 1} &rarr;</button>
+        <div class="toolbar-row" style="justify-content: center; gap: 40px; background-color: var(--vscode-sideBar-background);">
+            ${pageNumber > 1 ? `<button class="nav-btn" id="prevPage">&larr; Page ${pageNumber - 1}</button>` : '<div style="min-width: 80px;"></div>'}
+            <span style="font-weight: bold;">Page ${pageNumber}</span>
+            ${pageNumber < 604 ? `<button class="nav-btn" id="nextPage">Page ${pageNumber + 1} &rarr;</button>` : '<div style="min-width: 80px;"></div>'}
         </div>
         ` : ''}
     </div>
-    <div class="header">
-        <h1>${title}</h1>
-    </div>
+
     <div class="content">
         ${ayahsHtml}
     </div>
@@ -276,7 +313,7 @@ export class QuranView {
                 el.classList.toggle('hidden');
             });
 
-            toggleBtn.innerText = newState ? 'Sembunyikan' : 'Tampilkan';
+            toggleBtn.innerText = newState ? 'Hide' : 'Show';
 
             vscode.postMessage({
                 command: 'updateSetting',
